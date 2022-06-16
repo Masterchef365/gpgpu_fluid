@@ -109,6 +109,10 @@ impl LinSolve {
         unsafe {
             gl.bind_image_texture(X0_BIND, x0, 0, false, 0, glow::READ_WRITE, glow::R32F);
             gl.bind_image_texture(SCRATCH_BIND, self.wg_scratch, 0, false, 0, glow::READ_WRITE, glow::R32F);
+
+            gl.uniform_1_f32(gl.get_uniform_location(self.program, "u_a").as_ref(), a);
+            gl.uniform_1_f32(gl.get_uniform_location(self.program, "u_c").as_ref(), c);
+            gl.uniform_1_i32(gl.get_uniform_location(self.program, "u_bordermode").as_ref(), b as i32);
         }
 
         let mut write_tex = x;
