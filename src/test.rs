@@ -1,5 +1,15 @@
 use glow::{Context as GlContext, HasContext, NativeBuffer, NativeProgram, NativeTexture, PixelPackData};
 use fruid::Array2D;
+use crate::{gl_utils::*, LinSolve, SimulationSize};
+
+#[test]
+fn test_lin_solve() {
+    let (gl, _win, _, _ctx) = create_sdl2_context();
+
+    let size = SimulationSize::from_tiles(20, 20);
+
+    let solver = LinSolve::new(&gl, size).expect("Failed to create solver");
+}
 
 /// Transfer image data from GPU to CPU
 fn download_image(gl: &GlContext, src: NativeTexture, dest: &mut Array2D) {
@@ -15,7 +25,6 @@ fn download_image(gl: &GlContext, src: NativeTexture, dest: &mut Array2D) {
         );
     }
 }
-
 
 impl Into<fruid::Bounds> for crate::Bounds {
     fn into(self) -> fruid::Bounds {

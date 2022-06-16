@@ -31,6 +31,10 @@ pub struct SimulationSize {
 }
 
 impl SimulationSize {
+    pub fn from_tiles(x_tiles: usize, y_tiles: usize) -> Self {
+        Self { x_tiles, y_tiles }
+    }
+
     /// Calculate the dimensions of the simulation volume (including boundaries)
     pub fn dims(&self) -> (usize, usize) {
         (
