@@ -45,19 +45,27 @@ fn test_lin_solve() {
     // Solve on CPU
     fruid::lin_solve(border, &mut cpu_x, &cpu_x0, &mut cpu_scratch, a, c);
 
+    check_diff(&cpu_x, &gpu_dl_x, 1e-7);
+}
+
+#[track_caller]
+fn check_diff(a: &Array2D, b: &Array2D, threshold: f32) {
+    assert_eq!(a.width(), b.width());
+    assert_eq!(a.height(), b.height());
+
     // Compare results
-    let diffs: Vec<f32> = gpu_dl_x
+    let diffs: Vec<f32> = a
         .data()
         .iter()
-        .zip(cpu_x.data())
-        .map(|(g, c)| (g - c).abs())
+        .zip(b.data())
+        .map(|(a, b)| (a - b).abs())
         .collect();
 
     let max_diff = *diffs.iter().max_by(|a, b| cmp_f32(*a, *b)).unwrap();
     let avg_diff = diffs.iter().sum::<f32>() / diffs.len() as f32;
 
     assert!(
-        max_diff < 1e-7,
+        max_diff < threshold,
         "Max diff was {}, average {}",
         max_diff,
         avg_diff
@@ -107,4 +115,41 @@ impl From<fruid::Bounds> for crate::Bounds {
             fruid::Bounds::Positive => crate::Bounds::Positive,
         }
     }
+}
+
+pub enum ImageChannels {
+    Rgb,
+    Grayscale,
+}
+
+pub fn write_netpbm(
+    path: &str,
+    image: &[u8],
+    width: usize,
+    channels: ImageChannels,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut writer = std::fs::File::create(path)?;
+
+    let (pixel_stride, header) = match channels {
+        ImageChannels::Rgb => (3, "P6"),
+        ImageChannels::Grayscale => (1, "P5"),
+    };
+
+    let height = image.len() / (width * pixel_stride);
+    debug_assert_eq!(image.len() % width, 0);
+
+    writer.write_all(format!("{}\n{} {}\n255\n", header, width, height).as_bytes())?;
+    writer.write_all(image)?;
+    Ok(())
+}
+
+pub fn write_array(path: &str, arr: Array2D, max: f32) -> std::io::Result<()> {
+    let normalized_u8: Vec<u8> = arr
+        .data()
+        .iter()
+        .map(|d| ((d / max) * 256.) as u8)
+        .collect();
+
+    write_netpbm(path, &normalized_u8, arr.width(), ImageChannels::Grayscale)
 }

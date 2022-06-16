@@ -43,17 +43,16 @@ uniform float u_c;
 uniform int u_bordermode; 
 
 // Input, output images must have dimensions of gl_NumWorkGroups * tilesz
-layout(r32f, binding = 0) uniform image2D x0_img;
-layout(r32f, binding = 1) uniform image2D input_img;
-layout(r32f, binding = 2) uniform image2D output_img;
+layout(r32f, binding = 0) uniform readonly image2D x0_img;
+layout(r32f, binding = 1) uniform readonly image2D input_img;
+layout(r32f, binding = 2) uniform writeonly image2D output_img;
 
 // Scratch space must have dimensions of gl_NumWorkGroups * gl_WorkGroupSize
 layout(r32f, binding = 3) uniform image2D scratch;
 
 // Test whether the given v is within [lower, upper)
 bool rect_test(ivec2 v, ivec2 lower, ivec2 upper) {
-    return all(greaterThanEqual(v, lower)) &&
-        all(lessThan(v, upper));
+    return all(greaterThanEqual(v, lower)) && all(lessThan(v, upper));
 }
 
 void main() {
