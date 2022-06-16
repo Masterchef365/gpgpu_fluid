@@ -45,11 +45,11 @@ fn test_lin_solve() {
     // Solve on CPU
     fruid::lin_solve(border, &mut cpu_x, &cpu_x0, &mut cpu_scratch, a, c);
 
-    check_diff(&cpu_x, &gpu_dl_x, 1e-7);
+    check_diff(&cpu_x, &gpu_dl_x, 1e-7, "lin_solve");
 }
 
 #[track_caller]
-fn check_diff(a: &Array2D, b: &Array2D, threshold: f32) {
+fn check_diff(a: &Array2D, b: &Array2D, threshold: f32, name: &str) {
     assert_eq!(a.width(), b.width());
     assert_eq!(a.height(), b.height());
 
@@ -61,15 +61,28 @@ fn check_diff(a: &Array2D, b: &Array2D, threshold: f32) {
         .map(|(a, b)| (a - b).abs())
         .collect();
 
-    let max_diff = *diffs.iter().max_by(|a, b| cmp_f32(*a, *b)).unwrap();
-    let avg_diff = diffs.iter().sum::<f32>() / diffs.len() as f32;
+    let diff_image = Array2D::from_array(a.width(), diffs);
+
+    let max_diff = *diff_image
+        .data()
+        .iter()
+        .max_by(|a, b| cmp_f32(*a, *b))
+        .unwrap();
+    let avg_diff = diff_image.data().iter().sum::<f32>() / diff_image.data().len() as f32;
+
+    let cond = max_diff < threshold;
+    if !cond {
+        write_array_pgm(&format!("{}.pgm", name), &diff_image, max_diff).unwrap();
+    }
 
     assert!(
-        max_diff < threshold,
+        cond,
         "Max diff was {}, average {}",
         max_diff,
         avg_diff
     );
+
+    
 }
 
 fn random_data(size: SimulationSize, rng: impl Rng) -> Array2D {
@@ -144,7 +157,7 @@ pub fn write_netpbm(
     Ok(())
 }
 
-pub fn write_array(path: &str, arr: Array2D, max: f32) -> std::io::Result<()> {
+pub fn write_array_pgm(path: &str, arr: &Array2D, max: f32) -> std::io::Result<()> {
     let normalized_u8: Vec<u8> = arr
         .data()
         .iter()
