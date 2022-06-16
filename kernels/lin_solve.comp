@@ -76,6 +76,13 @@ void main() {
         ivec2(gl_WorkGroupSize.xy - 1)
     );
 
+    // Determine whether we overlap with the area inside a one pixel margin
+    bool inside_io_bound = rect_test(
+        io_pos,
+        ivec2(1), 
+        imageSize(x0_img) - 1
+    );
+
     bool io_left = io_pos.x == 0;
     bool io_right = io_pos.x + 1 == imageSize(input_img).x;
 
@@ -91,13 +98,6 @@ void main() {
     ivec2 smpl = sc_pos + off;
 
     ivec2 ip = io_pos + off;
-
-    // Determine whether we are inside of the bounds of the io images
-    bool inside_io = rect_test(
-        ip, 
-        ivec2(0), 
-        imageSize(input_img)
-    );
 
     // Load from input image to scratch space.
     // Assumes image sampling mode has been set to zero edges
@@ -121,9 +121,26 @@ void main() {
             float up = imageLoad(scratch, smpl + ivec2(0, -1)).r;
             float down = imageLoad(scratch, smpl + ivec2(0, 1)).r;
 
-            float sum = left + right + up + down;
+            //if (true) {
+            if (inside_io_bound) {
+                // Solve
+                float sum = left + right + up + down;
+                next = (x0 + u_a * sum) / u_c;
+            } else {
+                // Boundary conditions
+                ivec2 ims = imageSize(input_img);
+                if (io_pos.x == 0) {
+                    next = u_bordermode == 1 ? -right : right;
+                } else if (io_pos.x + 1 == ims.x) {
+                    next = u_bordermode == 1 ? -left : left;
+                }
 
-            next = (x0 + u_a * sum) / u_c;
+                if (io_pos.y == 0) {
+                    next = u_bordermode == 2 ? -down : down;
+                } else if (io_pos.y + 1 == ims.y) {
+                    next = u_bordermode == 2 ? -up : up;
+                }
+            }
         } else {
             next = 0.;
         }

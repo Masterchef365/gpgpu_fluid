@@ -10,9 +10,12 @@ use rand::prelude::*;
 
 #[test]
 fn test_lin_solve() {
-    let a = 1.;
-    let c = 8.;
-    let border = fruid::Bounds::Positive;
+    //test_lin_solve_example(1., 8., fruid::Bounds::Positive);
+    test_lin_solve_example(1., 8., fruid::Bounds::NegX);
+}
+
+#[track_caller]
+fn test_lin_solve_example(a: f32, c: f32, border: fruid::Bounds) {
     assert_eq!(LinSolve::TOTAL_STEPS, 20);
 
     // Create GPU solver
