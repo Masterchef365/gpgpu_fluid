@@ -1,0 +1,14 @@
+[package]
+name = "gpgpu_fluid"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glow = "0.11.2"
+sdl2 = "0.34"
+anyhow = "1"
+bytemuck = "1.9.1"
+rand = { version = "0.8", features = ["small_rng"] }
+
+[dev-dependencies]
+fruid = { path = "../fruid" }

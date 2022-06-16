@@ -1,0 +1,147 @@
+#version 430
+
+/*
+v sc_pos
++-----------------------------+
+|                             |
+|                             |
+|                             |
+|         v io_pos            |
+| - - - - +---------+         |
+| inside  |         |         |
+|   io    | inside  |<------->|
+|         |  tile   |  steps  |
+|         |         |         |
+|         +---------+         |
+|                             |
+|         |<------->|         |
+|            tilesz           |
+|                             |
++-----------------------------+
+
+|<------- local_size -------->|
+*/
+
+// Work group size
+layout(local_size_x = 32, local_size_y = 32) in;
+
+// Solution accuracy parameter
+// Note: total efficiency is approx. tilesz^2 / local_size^2
+// For example, 20 steps with local size 512 is ~86% efficient 
+// While 20 steps with local size 256 is ~75% efficient
+const uint steps = 5;
+
+// One pixel of margin where we do not read, so that we 
+// avoid reading the scratch space of adjacent workgroups
+const uint margin = steps;
+
+// Determines size of tiles written/read from input/output_img
+const uvec2 tilesz = gl_WorkGroupSize.xy - margin * 2;
+
+uniform float u_a;
+uniform float u_c;
+uniform int u_bordermode; 
+
+// Input, output images must have dimensions of gl_NumWorkGroups * tilesz
+layout(r32f, binding = 0) uniform image2D x0_img;
+layout(r32f, binding = 1) uniform image2D input_img;
+layout(r32f, binding = 2) uniform image2D output_img;
+
+// Scratch space must have dimensions of gl_NumWorkGroups * gl_WorkGroupSize
+layout(r32f, binding = 3) uniform image2D scratch;
+
+// Test whether the given v is within [lower, upper)
+bool rect_test(ivec2 v, ivec2 lower, ivec2 upper) {
+    return all(greaterThanEqual(v, lower)) &&
+        all(lessThan(v, upper));
+}
+
+void main() {
+    // Position used for input_img and output_img
+    ivec2 io_pos = ivec2(gl_WorkGroupID.xy * tilesz + gl_LocalInvocationID.xy) - int(margin);
+
+    // Position used for scratch buffer
+    ivec2 sc_pos = ivec2(gl_GlobalInvocationID.xy);
+
+    // Determine whether we are inside the tile portion copied to/from the io images
+    bool inside_tile = rect_test(
+        ivec2(gl_LocalInvocationID.xy),
+        ivec2(margin), 
+        ivec2(tilesz + margin)
+    );
+
+    // Determine whether we overlap with the area inside a one pixel margin
+    bool inside_workgroup = rect_test(
+        ivec2(gl_LocalInvocationID.xy), 
+        ivec2(1), 
+        ivec2(gl_WorkGroupSize.xy - 1)
+    );
+
+    bool io_left = io_pos.x == 0;
+    bool io_right = io_pos.x + 1 == imageSize(input_img).x;
+
+    bool io_top = io_pos.y == 0;
+    bool io_bottom = io_pos.y + 1 == imageSize(input_img).y;
+
+    ivec2 off = 
+        int(io_left) * ivec2(1, 0) +
+        int(io_right) * ivec2(-1, 0) +
+        int(io_top) * ivec2(0, 1) +
+        int(io_bottom) * ivec2(0, -1);
+
+    ivec2 smpl = sc_pos + off;
+
+    ivec2 ip = io_pos + off;
+
+    // Determine whether we are inside of the bounds of the io images
+    bool inside_io = rect_test(
+        ip, 
+        ivec2(0), 
+        imageSize(input_img)
+    );
+
+    // Load from input image to scratch space.
+    // Assumes image sampling mode has been set to zero edges
+    float x0 = imageLoad(x0_img, ip).r;
+
+    float input_smpl = imageLoad(input_img, ip).r;
+    imageStore(scratch, sc_pos, vec4(input_smpl, 0, 0, 0));
+
+
+    // Solve using the Jacobi method, cooperating with workgroup 
+    float next = x0;
+    for (int i = 0; i < steps; i++) {
+        // Wait for last group imageStores to complete
+        memoryBarrierImage();
+        barrier();
+
+        // Load neighborhood
+        if (inside_workgroup) {
+            float left = imageLoad(scratch, smpl + ivec2(-1, 0)).r;
+            float right = imageLoad(scratch, smpl + ivec2(1, 0)).r;
+            float up = imageLoad(scratch, smpl + ivec2(0, -1)).r;
+            float down = imageLoad(scratch, smpl + ivec2(0, 1)).r;
+
+            float sum = left + right + up + down;
+
+            next = (x0 + u_a * sum) / u_c;
+        } else {
+            next = 0.;
+        }
+
+        // Wait for group ImageLoads to finish
+        memoryBarrierImage();
+        barrier();
+
+        // Write result
+        imageStore(scratch, sc_pos, vec4(next, 0, 0, 0));
+    }
+
+    memoryBarrierImage();
+    barrier();
+
+    // Write to output image
+    if (inside_tile) {
+        imageStore(output_img, io_pos, vec4(next, 0, 0, 0));
+    }
+}
