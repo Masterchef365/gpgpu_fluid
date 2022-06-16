@@ -107,6 +107,8 @@ impl LinSolve {
         const SCRATCH_BIND: u32 = 3;
 
         unsafe {
+            gl.use_program(Some(self.program));
+
             gl.bind_image_texture(X0_BIND, x0, 0, false, 0, glow::READ_WRITE, glow::R32F);
             gl.bind_image_texture(SCRATCH_BIND, self.wg_scratch, 0, false, 0, glow::READ_WRITE, glow::R32F);
 

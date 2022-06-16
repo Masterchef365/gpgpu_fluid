@@ -32,7 +32,6 @@ fn test_lin_solve() {
 
     // Create gpu resources
     let gpu_x0 = create_image(&gl, w as i32, h as i32, Some(cpu_x0.data())).unwrap();
-
     let gpu_x = create_image(&gl, w as i32, h as i32, Some(cpu_x.data())).unwrap();
 
     // Solve on GPU
@@ -57,7 +56,12 @@ fn test_lin_solve() {
     let max_diff = *diffs.iter().max_by(|a, b| cmp_f32(*a, *b)).unwrap();
     let avg_diff = diffs.iter().sum::<f32>() / diffs.len() as f32;
 
-    assert!(max_diff < 1e-5, "Max diff was {}, average {}", max_diff, avg_diff);
+    assert!(
+        max_diff < 1e-7,
+        "Max diff was {}, average {}",
+        max_diff,
+        avg_diff
+    );
 }
 
 fn random_data(size: SimulationSize, rng: impl Rng) -> Array2D {
@@ -65,7 +69,6 @@ fn random_data(size: SimulationSize, rng: impl Rng) -> Array2D {
     let data = Uniform::new(-1., 1.).sample_iter(rng).take(w * h).collect();
     Array2D::from_array(w, data)
 }
-
 
 fn cmp_f32(a: &f32, b: &f32) -> Ordering {
     a.partial_cmp(&b).unwrap_or(Ordering::Equal)
