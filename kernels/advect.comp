@@ -1,0 +1,30 @@
+#version 430
+layout(local_size_x = 32, local_size_y = 32) in;
+
+uniform int u_bordermode; 
+
+// Input, output images must have dimensions of gl_NumWorkGroups * tilesz
+layout(r32f, binding = 0) uniform writeonly image2D d;
+layout(r32f, binding = 1) uniform readonly sampler2D d0;
+layout(r32f, binding = 2) uniform readonly image2D u;
+layout(r32f, binding = 3) uniform readonly image2D v;
+
+// Test whether the given v is within [lower, upper)
+bool rect_test(ivec2 v, ivec2 lower, ivec2 upper) {
+    return all(greaterThanEqual(v, lower)) && all(lessThan(v, upper));
+}
+
+// pub fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
+void main() {
+    bool in_bounds = rect_test(
+        gl_GlobalInvocationID.xy, 
+        ivec2(1), 
+        imageSize(d0) - 1
+    );
+
+    if (!in_bounds) return;
+
+    float next;
+
+    imageStore(d, vec4(next, 0, 0, 0));
+}
